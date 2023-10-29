@@ -1,0 +1,5 @@
+id=nethunter_modules
+name=RTL8188EUS & RTL8812AU module loader
+version=15-09-2023-A525FXXS5DWD2
+author=atlas_c0 @ telegram
+description=Loads RTL8188EUS & RTL8812AU modules for this kernel.
