@@ -1,134 +1,60 @@
-#!/sbin/sh
-
-######
-# INIT
-######
-
 umask 0022
 
-# Global vars
-TMPDIR="/dev/tmp"
-PERSISTDIR="/sbin/.magisk/mirror/persist"
 
-# Echo before loading util_functions
-ui_print() { echo "$@"; }
+MODID=nethunter_modules
+AUTOMOUNT=true
 
-load_vksel() { source "$MODPATH/addon/Volume-Key-Selector/install.sh"; }
+LATESTARTSERVICE=true
 
-rm_exist() { [[ -e "$1" ]] && rm -rf "$1" 2>/dev/null; }
 
-rm_exist "$TMPDIR"
-mkdir -p "$TMPDIR"
+print_modname() {
+  ui_print "*******************************"
+  ui_print "Wireless adapter modules loader"
+  ui_print "*******************************"
+  sleep 2
+}
 
-####################
-# SETUP ENVIRONMENT
-####################
+REPLACE="
+"
 
-OUTFD="$2"
-ZIPFILE="$3"
+set_permissions() {
+  set_perm_recursive  $MODPATH  0  0  0755  0644
+}
+
+start_process(){
+  ui_print "Copying files..."
+  mkdir /data/adb/modules/KernelModules
+  cp -r system /data/adb/modules/KernelModules/
+  cp module.prop /data/adb/modules/KernelModules/
+  cp service.sh /data/adb/modules/KernelModules/
+  ui_print "Done! Reboot to apply changes"
+  ui_print "Happy hacking :D"
+}
+
 
 mount /data 2>/dev/null
 
-# Load utility functions
 source "/data/adb/magisk/util_functions.sh"
 
-# Preperation for flashable zips
-setup_flashable
 
-# Mount partitions
-mount_partitions
+ZIP=$3
+TMPDIR=/dev/tmp
 
-# Detect version and architecture
-api_level_arch_detect
+mkdir -p $TMPDIR
+cd $TMPDIR
 
-# Setup busybox and binaries
-"$BOOTMODE" && boot_actions || recovery_actions
+ui_print "Extracting files. Please, wait..."
 
-##############
-# PREPARATION
-##############
+unzip "$ZIP"
 
-# Extract prop file
-unzip -o "$ZIPFILE" module.prop -d "$TMPDIR" >&2
-[[ ! -f "$TMPDIR/module.prop" ]] && abort "[!] Unable to extract zip file!"
+if [ ! -f "service.sh" ]; then
+  ui_print "! Failed: Unable to extract zip file!"
+  exit 1
+fi
 
-# Mod vars
-NVBASE="/data/adb"
-$BOOTMODE && MODDIRNAME=modules_update || MODDIRNAME=modules
-MODULEROOT="$NVBASE/$MODDIRNAME"
-MODID="$(grep_prop "id" "$TMPDIR/module.prop")"
-MODPATH="$MODULEROOT/$MODID"
-MODNAME="$(grep_prop "name" "$TMPDIR/module.prop")"
 
-# Create mod paths
-rm_exist "$MODPATH"
-mkdir -p "$MODPATH"
-
-##############
-# INSTALLATION
-##############
-
-# Extract to $MODPATH
-unzip -o "$ZIPFILE" -d "$MODPATH" >&2
-
-# Load install script
-source "$MODPATH/setup.sh"
-
-# Remove all old files before doing installation if want to
-"$CLEANSERVICE" && rm -rf "/data/adb/modules/$MODID"
-
-# Enable debugging if true
-"$DEBUG" && set -x || set +x
-
-# Print mod info
-info_print
-
-# Auto vskel load
-"$AUTOVKSEL" && load_vksel
-
-# Main
-init_main
-
-# Skip mount
-"$SKIPMOUNT" && touch "$MODPATH/skip_mount"
-
-# Set permissions
+print_modname
 set_permissions
+start_process
 
-# Handle replace folders
-for TARGET in $REPLACE; do
-  ui_print "[*] Replace target: $TARGET"
-  mktouch "$MODPATH$TARGET/.replace"
-done
-
-"$BOOTMODE" && {
-  # Update info for Magisk app
-  mktouch "$NVBASE/modules/$MODID/update"
-  cp -af "$MODPATH/module.prop" "$NVBASE/modules/$MODID/module.prop"
-}
-
-# Copy over custom sepolicy rules
-[[ -f "$MODPATH/sepolicy.rule" ]] && {
-  ui_print "[*] Installing custom sepolicy rules..."
-  copy_sepolicy_rules
-}
-
-# Remove stuffs that don't belong to modules
-rm_exist "$MODPATH/META-INF"
-rm_exist "$MODPATH/addon"
-rm_exist "$MODPATH/setup.sh"
-rm_exist "$MODPATH/LICENSE"
-rm_exist "$MODPATH/README.md"
-rm_exist "$MODPATH/changelog.md"
-rm_exist "$MODPATH/dex2oat-optimizer.png"
-rm_exist "$MODPATH/system/bin/dex2oat_opt32"
-rm_exist "$MODPATH/system/bin/dex2oat_opt64"
-
-##############
-# Finalizing
-##############
-
-cd /
-"$BOOTMODE" || recovery_cleanup
-rm_exist "$TMPDIR"
 exit 0
