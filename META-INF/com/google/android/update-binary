@@ -23,6 +23,10 @@ set_permissions() {
 
 start_process(){
   ui_print "Copying files..."
+  if [ -d /data/adb/modules/KernelModules ]; then
+    ui_print "Existing module installation found. Removing..."
+    rm -rf /data/adb/modules/KernelModules
+  fi
   mkdir /data/adb/modules/KernelModules
   cp -r system /data/adb/modules/KernelModules/
   cp module.prop /data/adb/modules/KernelModules/
